@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
-#include <random>
-
 #include "mpi.h"
 
 int main(int argc, char *argv[])
@@ -32,20 +30,23 @@ int main(int argc, char *argv[])
     const int n_rows = dim / num_tasks;
 
     // Variable to store the chunk of the matrix
-    auto m_chunk = std::make_unique<double[]>(dim * n_rows);
+    auto m_chunk = std::make_unique<double[]>(dim * n_rows * 2);
 
     // Read in the matrix
     std::unique_ptr<double[]> matrix;
     if (task_id == 0)
     {
-        matrix = std::make_unique<double[]>(dim * dim);
+        matrix = std::make_unique<double[]>((dim * 2) * dim);
 
         for (int i = 0; i < dim; i++)
         {
             for (int j = 0; j < dim; j++)
             {
-                std::cin >> matrix[i * dim + j];
+                std::cin >> matrix[i * (dim * 2) + j];
             }
+
+            // Append the identity matrix
+            matrix[i * (dim * 2) + dim + i] = 1.0;
         }
     }
 
@@ -59,8 +60,8 @@ int main(int argc, char *argv[])
     // Scatter the matrix into chunks
     for (int i = 0; i < n_rows; i++)
     {
-        MPI_Scatter(matrix.get() + i * dim * num_tasks, dim, MPI_DOUBLE,
-                    m_chunk.get() + i * dim, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatter(matrix.get() + i * (dim * 2) * num_tasks, dim * 2, MPI_DOUBLE,
+                m_chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
 
@@ -70,9 +71,8 @@ int main(int argc, char *argv[])
     // Gather the matrix
     for (int i = 0; i < n_rows; i++)
     {
-        MPI_Gather(m_chunk.get() + i * dim, dim, MPI_DOUBLE,
-                   matrix.get() + num_tasks * i * dim, dim, MPI_DOUBLE, 0,
-                   MPI_COMM_WORLD);
+        MPI_Gather(m_chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE,
+                matrix.get() + i * (dim * 2) * num_tasks, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Output
@@ -80,11 +80,12 @@ int main(int argc, char *argv[])
     {
         double end = MPI_Wtime();
         std::cout << "Time: " << end - start << '\n';
+        // print the matrix
         for (int i = 0; i < dim; i++)
         {
-            for (int j = 0; j < dim; j++)
+            for (int j = 0; j < dim * 2; j++)
             {
-                std::cout << matrix[i * dim + j] << ' ';
+                std::cout << matrix[i * (dim * 2) + j] << ' ';
             }
             std::cout << '\n';
         }
