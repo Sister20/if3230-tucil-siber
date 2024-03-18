@@ -50,6 +50,24 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Partial pivoting
+    if (task_id == 0)
+    {
+        double d = 0.0;
+        for (int i = dim; i > 1; --i)
+        {
+            if (matrix[(i - 1) * (dim * 2) + 1] < matrix[i * (dim * 2) + 1])
+            {
+                for (int j = 0; j < dim * 2; ++j)
+                {
+                    d = matrix[i * (dim * 2) + j];
+                    matrix[i * (dim * 2) + j] = matrix[(i - 1) * (dim * 2) + j];
+                    matrix[(i - 1) * (dim * 2) + j] = d;
+                }
+            }
+        }
+    }
+
     // Exexcution time
     double start;
     if (task_id == 0)
@@ -61,18 +79,31 @@ int main(int argc, char *argv[])
     for (int i = 0; i < n_rows; i++)
     {
         MPI_Scatter(matrix.get() + i * (dim * 2) * num_tasks, dim * 2, MPI_DOUBLE,
-                m_chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                    m_chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
-
     // TODO: Implement the matrix inverse with gauss-jordan
-
+    // for (int row = 0; row < n_rows; row++)
+    // {
+    //     for (int rank = 0; rank < num_tasks; rank++)
+    //     {
+    //         auto global_col = row * num_tasks + rank;
+    //         if (rank == task_id)
+    //         {
+    //             auto pivot = m_chunk[row * dim * 2 + global_col];
+    //             for (int col = global_col; col < dim * 2; col++)
+    //             {
+    //                 m_chunk[row * dim * 2 + col] /= pivot;
+    //             }
+    //         }
+    //     }
+    // }
 
     // Gather the matrix
     for (int i = 0; i < n_rows; i++)
     {
         MPI_Gather(m_chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE,
-                matrix.get() + i * (dim * 2) * num_tasks, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                   matrix.get() + i * (dim * 2) * num_tasks, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Output
