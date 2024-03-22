@@ -4,15 +4,13 @@
 
 #include "mpi.h"
 
-// Matrix class to store the matrix data
-class Matrix
+// Matrix struct
+struct Matrix
 {
-private:
     double *data;
     int rows;
     int cols;
 
-public:
     // Constructor
     Matrix(int rows, int cols) : rows(rows), cols(cols)
     {
@@ -31,6 +29,7 @@ public:
         return data + row * cols;
     }
 };
+
 
 int main(int argc, char *argv[])
 {
