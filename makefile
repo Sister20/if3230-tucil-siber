@@ -1,6 +1,6 @@
 OUTPUT_FOLDER = bin
 RESULT_FOLDER = result
-SIZE = 32
+SIZE = 1024
 
 all: serial parallel
 

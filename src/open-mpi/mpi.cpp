@@ -4,21 +4,48 @@
 
 #include "mpi.h"
 
+// Matrix class to store the matrix data
+class Matrix
+{
+private:
+    double *data;
+    int rows;
+    int cols;
+
+public:
+    // Constructor
+    Matrix(int rows, int cols) : rows(rows), cols(cols)
+    {
+        data = new double[rows * cols];
+    }
+
+    // Destructor
+    ~Matrix()
+    {
+        delete[] data;
+    }
+
+    // Overload to access the matrix elements
+    double *operator[](int row)
+    {
+        return data + row * cols;
+    }
+};
+
 int main(int argc, char *argv[])
 {
     // Initialize MPI
     MPI_Init(&argc, &argv);
 
+    int num_processes, rank, dim;
+
     // Get the total number of processes
-    int num_processes;
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
 
     // Get current rank (Process ID)
-    int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Get the dimension of the matrix
-    int dim;
     if (rank == 0)
     {
         std::cin >> dim;
@@ -31,32 +58,31 @@ int main(int argc, char *argv[])
     const int chunk_rows = dim / num_processes;
 
     // Read matrix from text file
-    std::unique_ptr<double[]> matrix;
+    Matrix matrix(dim, dim * 2);
     if (rank == 0)
     {
-        matrix = std::make_unique<double[]>((dim * 2) * dim);
         for (int i = 0; i < dim; i++)
         {
             for (int j = 0; j < dim; j++)
             {
-                std::cin >> matrix[i * (dim * 2) + j];
+                std::cin >> matrix[i][j];
             }
 
             // Append the identity matrix
-            matrix[i * (dim * 2) + dim + i] = 1.0;
+            matrix[i][dim + i] = 1.0;
         }
     }
 
     // Scatter the matrix into chunks (cyclic)
-    auto chunk = std::make_unique<double[]>(dim * chunk_rows * 2);
+    double *chunk = new double[chunk_rows * dim * 2];
     for (int i = 0; i < chunk_rows; i++)
     {
-        MPI_Scatter(matrix.get() + i * (dim * 2) * num_processes, dim * 2, MPI_DOUBLE,
-                    chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatter(matrix[0] + i * dim * 2 * num_processes, dim * 2, MPI_DOUBLE,
+                    chunk + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Allocate memory to store pivot row sent by other processes
-    auto pivot_row = std::make_unique<double[]>(dim * 2);
+    double *pivot_row = new double[dim * 2];
 
     // Calculate the matrix inverse with gauss-jordan
     for (int row = 0; row < chunk_rows; row++)
@@ -78,7 +104,7 @@ int main(int argc, char *argv[])
                 }
 
                 // Send the pivot row to the other ranks
-                MPI_Bcast(chunk.get() + row * dim * 2, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
+                MPI_Bcast(chunk + row * dim * 2, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
                 // Forward elimination (Elimination for the lower half of the matrix)
                 for (int elim_row = row + 1; elim_row < chunk_rows; elim_row++)
@@ -112,7 +138,7 @@ int main(int argc, char *argv[])
             else
             {
                 // Receive the pivot from the sending current_rank
-                MPI_Bcast(pivot_row.get(), dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
+                MPI_Bcast(pivot_row, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
                 int local_start = (rank < current_rank) ? row + 1 : row;
 
@@ -151,8 +177,8 @@ int main(int argc, char *argv[])
     // Gather the matrix chunks into a single matrix (cyclic)
     for (int i = 0; i < chunk_rows; i++)
     {
-        MPI_Gather(chunk.get() + i * dim * 2, dim * 2, MPI_DOUBLE,
-                   matrix.get() + i * (dim * 2) * num_processes, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(chunk + i * dim * 2, dim * 2, MPI_DOUBLE,
+                   matrix[i * num_processes], dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Print output to a text file
@@ -162,16 +188,18 @@ int main(int argc, char *argv[])
         {
             for (int j = 0; j < dim; j++)
             {
-                std::cout << matrix[i * (dim * 2) + dim + j] << " ";
+                std::cout << matrix[i][dim + j] << " ";
             }
             std::cout << std::endl;
         }
     }
+
+    // Deallocate memory
+    delete[] chunk;
+    delete[] pivot_row;
 
     // Finalize MPI environment
     MPI_Finalize();
 
     return 0;
 }
-
-
