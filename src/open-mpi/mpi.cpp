@@ -1,35 +1,12 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <iomanip>
 
 #include "mpi.h"
 
-// Matrix struct
-struct Matrix
-{
-    double *data;
-    int rows;
-    int cols;
-
-    // Constructor
-    Matrix(int rows, int cols) : rows(rows), cols(cols)
-    {
-        data = new double[rows * cols];
-    }
-
-    // Destructor
-    ~Matrix()
-    {
-        delete[] data;
-    }
-
-    // Overload to access the matrix elements
-    double *operator[](int row)
-    {
-        return data + row * cols;
-    }
-};
-
+#include "../utils/matrix_operation.cpp"
+#include "../class/Matrix.cpp"
 
 int main(int argc, char *argv[])
 {
@@ -96,79 +73,94 @@ int main(int argc, char *argv[])
             if (rank == current_rank)
             {
                 // Transform the matrix into a unit matrix
-                double pivot = chunk[row * dim * 2 + elim_col];
-                for (int col = elim_col; col < dim * 2; col++)
-                {
-                    chunk[row * dim * 2 + col] /= pivot;
-                }
+                
+                transformToUnitMatrix(chunk, row, dim, elim_col);
+                
+                // int pivot_index = row * dim * 2 + elim_col;
+                // double pivot = chunk[pivot_index];
+                // for (int col = elim_col; col < dim * 2; col++)
+                // {                //     chunk[row * dim * 2 + col] /= pivot;
+                // }
 
                 // Send the pivot row to the other ranks
                 MPI_Bcast(chunk + row * dim * 2, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
                 // Forward elimination (Elimination for the lower half of the matrix)
-                for (int elim_row = row + 1; elim_row < chunk_rows; elim_row++)
-                {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                int local_start = row + 1;
+                
+                forwardElimination(chunk, local_start, row, chunk_rows, elim_col);
+                
+                // for (int elim_row = local_start; elim_row < chunk_rows; elim_row++)
+                // {
+                //     // Get the ratio for elimination
+                //     double ratio = chunk[elim_row * dim * 2 + elim_col];
 
-                    // Reducing the lower half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
-                    {
-                        chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
-                    }
-                }
+                //     // Reducing the lower half of the matrix to be 0
+                //     for (int col = elim_col; col < dim * 2; col++)
+                //     {
+                //     chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * ratio;
+                //     }
+                // }
 
                 // Barrier to wait for all processes to finish the forward elimination
                 MPI_Barrier(MPI_COMM_WORLD);
 
                 // Backward elimination (Elimination for the upper half of the matrix)
-                for (int elim_row = row - 1; elim_row >= 0; elim_row--)
-                {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                
+                backwardElimination(chunk, dim, row, elim_col);
+                
+                // for (int elim_row = row - 1; elim_row >= 0; elim_row--)
+                // {
+                //     // Get the ratio for elimination
+                //     double scale = chunk[elim_row * dim * 2 + elim_col];
 
-                    // Reducing the upper half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
-                    {
-                        chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
-                    }
-                }
+                //     // Reducing the upper half of the matrix to be 0
+                //     for (int col = elim_col; col < dim * 2; col++)
+                //     {
+                //     chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
+                //     }
+                // }
             }
             else
             {
                 // Receive the pivot from the sending current_rank
                 MPI_Bcast(pivot_row, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
-                int local_start = (rank < current_rank) ? row + 1 : row;
-
                 // Forward elimination (Elimination for the lower half of the matrix)
-                for (int elim_row = local_start; elim_row < chunk_rows; elim_row++)
-                {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                int local_start = (rank < current_rank) ? row + 1 : row;
+                
+                forwardElimination(chunk, dim, local_start, chunk_rows, elim_col);
+                
+                // for (int elim_row = local_start; elim_row < chunk_rows; elim_row++)
+                // {
+                //     // Get the ratio for elimination
+                //     double ratio = chunk[elim_row * dim * 2 + elim_col];
 
-                    // Reducing the lower half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
-                    {
-                        chunk[elim_row * dim * 2 + col] -= pivot_row[col] * scale;
-                    }
-                }
+                //     // Reducing the lower half of the matrix to be 0
+                //     for (int col = elim_col; col < dim * 2; col++)
+                //     {
+                //     chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * ratio;
+                //     }
+                // }
 
                 // Barrier to wait for all processes to finish the forward elimination
                 MPI_Barrier(MPI_COMM_WORLD);
 
                 // Backward elimination (Elimination for the upper half of the matrix)
-                for (int elim_row = row; elim_row >= 0; elim_row--)
-                {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                
+                backwardElimination(chunk, dim, row, elim_col);
+                
+                // for (int elim_row = row - 1; elim_row >= 0; elim_row--)
+                // {
+                //     // Get the ratio for elimination
+                //     double scale = chunk[elim_row * dim * 2 + elim_col];
 
-                    // Reducing the upper half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
-                    {
-                        chunk[elim_row * dim * 2 + col] -= pivot_row[col] * scale;
-                    }
-                }
+                //     // Reducing the upper half of the matrix to be 0
+                //     for (int col = elim_col; col < dim * 2; col++)
+                //     {
+                //     chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
+                //     }
+                // }
             }
         }
     }
@@ -183,11 +175,13 @@ int main(int argc, char *argv[])
     // Print output to a text file
     if (rank == 0)
     {
+        std::cout << dim << std::endl;
         for (int i = 0; i < dim; i++)
         {
             for (int j = 0; j < dim; j++)
             {
-                std::cout << matrix[i][dim + j] << " ";
+                std::cout << std::fixed << std::setprecision(10) << matrix[i][dim + j] << " ";
+                // std::cout << matrix[i][dim + j] << " ";
             }
             std::cout << std::endl;
         }
