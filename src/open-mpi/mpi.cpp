@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <iomanip>
 
 #include "mpi.h"
 
@@ -30,13 +31,12 @@ struct Matrix
     }
 };
 
-
 int main(int argc, char *argv[])
 {
     // Initialize MPI
     MPI_Init(&argc, &argv);
 
-    int num_processes, rank, dim;
+    int num_processes, rank, m_dimension;
 
     // Get the total number of processes
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
@@ -47,41 +47,41 @@ int main(int argc, char *argv[])
     // Get the dimension of the matrix
     if (rank == 0)
     {
-        std::cin >> dim;
+        std::cin >> m_dimension;
     }
 
     // Broadcast the dimension of the matrix to all processes
-    MPI_Bcast(&dim, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&m_dimension, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     // Calculate the number of rows for each matrix chunk
-    const int chunk_rows = dim / num_processes;
+    const int chunk_rows = m_dimension / num_processes;
 
     // Read matrix from text file
-    Matrix matrix(dim, dim * 2);
+    Matrix matrix(m_dimension, m_dimension * 2);
     if (rank == 0)
     {
-        for (int i = 0; i < dim; i++)
+        for (int i = 0; i < m_dimension; i++)
         {
-            for (int j = 0; j < dim; j++)
+            for (int j = 0; j < m_dimension; j++)
             {
                 std::cin >> matrix[i][j];
             }
 
             // Append the identity matrix
-            matrix[i][dim + i] = 1.0;
+            matrix[i][m_dimension + i] = 1.0;
         }
     }
 
     // Scatter the matrix into chunks (cyclic)
-    double *chunk = new double[chunk_rows * dim * 2];
+    double *chunk = new double[chunk_rows * m_dimension * 2];
     for (int i = 0; i < chunk_rows; i++)
     {
-        MPI_Scatter(matrix[0] + i * dim * 2 * num_processes, dim * 2, MPI_DOUBLE,
-                    chunk + i * dim * 2, dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatter(matrix[0] + i * m_dimension * 2 * num_processes, m_dimension * 2, MPI_DOUBLE,
+                    chunk + i * m_dimension * 2, m_dimension * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Allocate memory to store pivot row sent by other processes
-    double *pivot_row = new double[dim * 2];
+    double *pivot_row = new double[m_dimension * 2];
 
     // Calculate the matrix inverse with gauss-jordan
     for (int row = 0; row < chunk_rows; row++)
@@ -96,48 +96,35 @@ int main(int argc, char *argv[])
             if (rank == current_rank)
             {
                 // Transform the matrix into a unit matrix
-                double pivot = chunk[row * dim * 2 + elim_col];
-                for (int col = elim_col; col < dim * 2; col++)
+                double pivot_value = chunk[row * m_dimension * 2 + elim_col];
+                for (int col = elim_col; col < m_dimension * 2; col++)
                 {
-                    chunk[row * dim * 2 + col] /= pivot;
+                    chunk[row * m_dimension * 2 + col] /= pivot_value;
                 }
 
                 // Send the pivot row to the other ranks
-                MPI_Bcast(chunk + row * dim * 2, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
+                MPI_Bcast(chunk + row * m_dimension * 2, m_dimension * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
-                // Forward elimination (Elimination for the lower half of the matrix)
-                for (int elim_row = row + 1; elim_row < chunk_rows; elim_row++)
+                // Transform the matrix into a diagonal matrix
+                for (int elim_row = 0; elim_row < chunk_rows; elim_row++)
                 {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
-
-                    // Reducing the lower half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
+                    if (elim_row != row)
                     {
-                        chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
-                    }
-                }
+                        // Get the ratio for elimination
+                        double scale = chunk[elim_row * m_dimension * 2 + elim_col];
 
-                // Barrier to wait for all processes to finish the forward elimination
-                MPI_Barrier(MPI_COMM_WORLD);
-
-                // Backward elimination (Elimination for the upper half of the matrix)
-                for (int elim_row = row - 1; elim_row >= 0; elim_row--)
-                {
-                    // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
-
-                    // Reducing the upper half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
-                    {
-                        chunk[elim_row * dim * 2 + col] -= chunk[row * dim * 2 + col] * scale;
+                        // Eliminate elements in both directions
+                        for (int col = elim_col; col < m_dimension * 2; col++)
+                        {
+                            chunk[elim_row * m_dimension * 2 + col] -= chunk[row * m_dimension * 2 + col] * scale;
+                        }
                     }
                 }
             }
             else
             {
                 // Receive the pivot from the sending current_rank
-                MPI_Bcast(pivot_row, dim * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
+                MPI_Bcast(pivot_row, m_dimension * 2, MPI_DOUBLE, current_rank, MPI_COMM_WORLD);
 
                 int local_start = (rank < current_rank) ? row + 1 : row;
 
@@ -145,49 +132,49 @@ int main(int argc, char *argv[])
                 for (int elim_row = local_start; elim_row < chunk_rows; elim_row++)
                 {
                     // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                    double scale = chunk[elim_row * m_dimension * 2 + elim_col];
 
                     // Reducing the lower half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
+                    for (int col = elim_col; col < m_dimension * 2; col++)
                     {
-                        chunk[elim_row * dim * 2 + col] -= pivot_row[col] * scale;
+                        chunk[elim_row * m_dimension * 2 + col] -= pivot_row[col] * scale;
                     }
                 }
-
-                // Barrier to wait for all processes to finish the forward elimination
-                MPI_Barrier(MPI_COMM_WORLD);
 
                 // Backward elimination (Elimination for the upper half of the matrix)
                 for (int elim_row = row; elim_row >= 0; elim_row--)
                 {
                     // Get the ratio for elimination
-                    double scale = chunk[elim_row * dim * 2 + elim_col];
+                    double scale = chunk[elim_row * m_dimension * 2 + elim_col];
 
                     // Reducing the upper half of the matrix to be 0
-                    for (int col = elim_col; col < dim * 2; col++)
+                    for (int col = elim_col; col < m_dimension * 2; col++)
                     {
-                        chunk[elim_row * dim * 2 + col] -= pivot_row[col] * scale;
+                        chunk[elim_row * m_dimension * 2 + col] -= pivot_row[col] * scale;
                     }
                 }
             }
         }
     }
 
+    // Barrier to wait for all processes to finish the calculation
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // Gather the matrix chunks into a single matrix (cyclic)
     for (int i = 0; i < chunk_rows; i++)
     {
-        MPI_Gather(chunk + i * dim * 2, dim * 2, MPI_DOUBLE,
-                   matrix[i * num_processes], dim * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(chunk + i * m_dimension * 2, m_dimension * 2, MPI_DOUBLE,
+                   matrix[i * num_processes], m_dimension * 2, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Print output to a text file
     if (rank == 0)
     {
-        for (int i = 0; i < dim; i++)
+        for (int i = 0; i < m_dimension; i++)
         {
-            for (int j = 0; j < dim; j++)
+            for (int j = 0; j < m_dimension; j++)
             {
-                std::cout << matrix[i][dim + j] << " ";
+                std::cout << matrix[i][m_dimension + j] << " ";
             }
             std::cout << std::endl;
         }

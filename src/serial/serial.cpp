@@ -83,7 +83,6 @@ int main()
         }
     }
     
-    cout << n << endl;
     for(i=0; i < n; ++i)
     {
         for(j = n; j < 2*n; ++j)
