@@ -1,74 +1,69 @@
-#include <iostream>
-#include <omp.h>
-
-// Matrix struct
-struct Matrix {
-    double *data;
-    int rows;
-    int cols;
-
-    // Constructor
-    Matrix(int rows, int cols) : rows(rows), cols(cols) {
-        data = new double[rows * cols];
-    }
-
-    // Destructor
-    ~Matrix() {
-        delete[] data;
-    }
-
-    // Overloaded operator []
-    double &operator[](int index) {
-        return data[index];
-    }
-};
+#include<iostream>
+#include<omp.h>
+using namespace std;
 
 int main()
 {
-    int m_dimension = 0, i = 0, j = 0, k = 0;
+    int i = 0, j = 0, k = 0, n = 0;
+    double **mat = NULL;
     double d = 0.0;
 
     // Get the dimension of the matrix
-    std::cin >> m_dimension;
+    cin >> n;
+
+    // Allocating memory for matrix array
+    mat = new double*[n];
+    for (i = 0; i < n; ++i) {
+        mat[i] = new double[2*n]();
+    }
 
     // Read matrix from text file
-    Matrix matrix(2 * m_dimension, 2 * m_dimension);
-    for (int i = 0; i < m_dimension; ++i) {
-        for (int j = 0; j < m_dimension; ++j) {
-            std::cin >> matrix[i * (2 * m_dimension) + j];
+    for (i = 0; i < n; ++i) {
+        for(j = 0; j < n; ++j)
+        {
+            cin >> mat[i][j];
         }
 
         // Append the identity matrix
-        matrix[i * (2 * m_dimension) + m_dimension + i] = 1.0;
+        mat[i][i+n] = 1.0;
     }
 
-    // Transform the matrix into a diagonal matrix
-    for (i = 0; i < m_dimension; ++i) {
-        for (j = 0; j < 2 * m_dimension; ++j) {
+    // Calculate the matrix inverse with gauss-jordan
+    #pragma omp parallel for
+    for (i = 0; i < n; ++i) {
+        
+        // Transform the matrix into a unit matrix
+        d = mat[i][i];
+        #pragma omp parallel for reduction(/:mat[i][j])
+        for (j = i; j < 2*n; ++j) {
+            mat[i][j] /= d;
+        }
+
+        // Transform the matrix into a diagonal matrix
+        for (j = 0; j < n; ++j) {
             if (j != i) {
-                d = matrix[j * (2 * m_dimension) + i] / matrix[i * (2 * m_dimension) + i];
-                for (k = 0; k < 2 * m_dimension; ++k) {
-                    matrix[j * (2 * m_dimension) + k] -= matrix[i * (2 * m_dimension) + k] * d;
+                d = mat[j][i];
+                #pragma omp parallel for reduction(-:mat[j][k])
+                for(k = i; k < 2*n; ++k) {
+                    mat[j][k] -= mat[i][k] * d;
                 }
             }
         }
     }
-    
-    // Transform the matrix into a unit matrix
-    for (i = 0; i < m_dimension; ++i) {
-        d = matrix[i * (2 * m_dimension) + i];
-        for (j = 0; j < 2*m_dimension; ++j) {
-            matrix[i * (2 * m_dimension) + j] /= d;
+
+    // Output result
+    for (i=0; i < n; ++i) {
+        for (j = n; j < 2*n; ++j) {
+            cout << mat[i][j] << " ";
         }
+        cout << endl;
     }
 
-    // Print output to a text file
-    for (int i = 0; i < m_dimension; ++i) {
-        for (int j = m_dimension; j < 2 * m_dimension; ++j) {
-            std::cout << matrix[i * (2 * m_dimension) + j] << " ";
-        }
-        std::cout << std::endl;
+    // Deleting the memory allocated
+    for (i = 0; i < n; ++i) {
+        delete[] mat[i];
     }
+    delete[] mat;
 
     return 0;
 }
