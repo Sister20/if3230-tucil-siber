@@ -29,21 +29,22 @@ int main()
     }
 
     // Calculate the matrix inverse with gauss-jordan
-    #pragma omp parallel for
+    #pragma omp parallel for shared(mat, n)
     for (i = 0; i < n; ++i) {
         
         // Transform the matrix into a unit matrix
         d = mat[i][i];
-        #pragma omp parallel for reduction(/:mat[i][j])
+        #pragma omp parallel for reduction(-:mat)
         for (j = i; j < 2*n; ++j) {
             mat[i][j] /= d;
         }
 
         // Transform the matrix into a diagonal matrix
+        #pragma omp parallel for
         for (j = 0; j < n; ++j) {
             if (j != i) {
                 d = mat[j][i];
-                #pragma omp parallel for reduction(-:mat[j][k])
+                #pragma omp parallel for reduction(-:mat)
                 for(k = i; k < 2*n; ++k) {
                     mat[j][k] -= mat[i][k] * d;
                 }
