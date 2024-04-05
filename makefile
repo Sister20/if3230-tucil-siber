@@ -8,7 +8,7 @@ mpi:
 	time mpirun -np 4 ./$(OUTPUT_FOLDER)/mpi < ./test_cases/$(SIZE).txt > $(RESULT_FOLDER)/mpi_$(SIZE).txt
 
 mp:
-	g++ src/open-mp/mp.cpp -o $(OUTPUT_FOLDER)/mp
+	g++ src/open-mp/mp.cpp -lgomp -o $(OUTPUT_FOLDER)/mp
 	time ./$(OUTPUT_FOLDER)/mp < ./test_cases/$(SIZE).txt > $(RESULT_FOLDER)/mp_$(SIZE).txt
 
 serial:
