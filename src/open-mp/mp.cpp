@@ -34,7 +34,7 @@ int main()
         
         // Transform the matrix into a unit matrix
         d = mat[i][i];
-        #pragma omp parallel for reduction(-:mat)
+        #pragma omp parallel for reduction(/:mat)
         for (j = i; j < 2*n; ++j) {
             mat[i][j] /= d;
         }
