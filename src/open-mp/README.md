@@ -5,7 +5,7 @@
     <img src="../../public/open-mp-ic.png" alt="Logo" height="80">
   </a>
 
-  <h3 align="center">TUCIL 2 - Open MP</h3>
+  <h3 align="center">Tucil 2 - Open MP</h3>
 
   <p align="center">
     Matrix inverse solver using shared memory.
@@ -63,47 +63,55 @@ Execution environment: Win11 - WSL2 Ubuntu 22.04 - 13th Gen Intel i9-13900H 2.60
         <tr>
             <th scope="col" rowspan="2">Matrix</th>
             <th scope="col" colspan="2">Execution Time (s)</th>
+            <th scope="col" rowspan="2">Speed Up</th>
         </tr>
         <tr>
             <th scope="col">Serial</th>
-            <th scope="col">Open MPI</th>
+            <th scope="col">Open MP</th>
         </tr>
     </thead>
     <tbody>
         <tr>
             <td>32</td>
-            <td>00.02</td>
-            <td>00.31</td>
+            <td>0.02</td>
+            <td>0.01</td>
+            <td>2</td>
         </tr>
         <tr>
             <td>64</td>
-            <td>00.04</td>
-            <td>00.32</td>
+            <td>0.04</td>
+            <td>0.06</td>
+            <td>0.67</td>
         </tr>
         <tr>
             <td>128</td>
-            <td>00.12</td>
-            <td>00.33</td>
+            <td>0.12</td>
+            <td>0.12</td>
+            <td>1</td>
         </tr>
         <tr>
             <td>256</td>
-            <td>00.51</td>
-            <td>00.4</td>
+            <td>0.51</td>
+            <td>0.4</td>
+            <td>1.275</td>
         </tr>
         <tr>
             <td>512</td>
-            <td>02.54</td>
-            <td>00.79</td>
+            <td>2.54</td>
+            <td>1.57</td>
+            <td>1.62</td>
         </tr>
         <tr>
             <td>1024</td>
             <td>13.65</td>
-            <td>02.72</td>
+            <td>5.87</td>
+            <td>2.33</td>
         </tr>
         <tr>
             <td>2048</td>
             <td>86.15</td>
-            <td>16.85</td>
+            <td>29.43</td>
+            <td>2.93</td>
         </tr>
     </tbody>
 </table>
@@ -112,7 +120,12 @@ Execution environment: Win11 - WSL2 Ubuntu 22.04 - 13th Gen Intel i9-13900H 2.60
 
 1. Matrix is read from a text file and then stored as an array of double
 
-2. For each
+2. Normalize the matrix into a unit matrix (pivot of each row is 1) 
+
+3. The diagonal matrix elimination process is performed using paralellization, using multiple threads
+
+4. After the original matrix became a row-echelon form matrix, the right side of the matrix is the inverse of the original matrix.
+
 
 ### Built With
 
