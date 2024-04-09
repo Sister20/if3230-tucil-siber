@@ -9,12 +9,24 @@
 
 using namespace std;
 
+__global__ void normalizeTransform(double *mat, double *id_mat, int n, int i){
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (col < n && row < n)
+        if (col == i && col!=row){
+            id_mat[col*n + row] /= mat[i*n + i];
+            mat[col*n + row] /= mat[i*n + i];
+        }
+
+}
+
 __global__ void transformToUnit(double *mat, double *id_mat, int n, int i) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (row < n && col < n) {
-        if (col == i) {
+        if (col == i && row == i) {
             id_mat[col * n + row] /= mat[i * n + i];
             mat[col * n + row] /= mat[i * n + i];
         }
@@ -95,6 +107,7 @@ int main()
 
 	// Perform the Gauss-Jordan elimination
     for (i = 0; i < n; ++i) {
+        normalizeTransform <<<numBlocks, threadsPerBlock >>>(mat_c, id_mat_c, n, i);
         // Transform the matrix into a unit matrix
         transformToUnit<<<numBlocks, threadsPerBlock>>>(mat_c, id_mat_c, n, i);
 
