@@ -13,10 +13,19 @@ __global__ void normalizeTransform(double *mat, double *id_mat, int n, int i){
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
 
+    __shared__ double pivot;
     if (col < n && row < n)
-        if (col == i && col!=row){
-            id_mat[col*n + row] /= mat[i*n + i];
-            mat[col*n + row] /= mat[i*n + i];
+        if (col == i && col != row){
+            pivot = mat[i*n + i];
+        }
+
+
+    __syncthreads();
+
+    if (col < n && row < n)
+        if (col == i && col != row){
+            id_mat[col*n + row] /= pivot;
+            mat[col*n + row] /= pivot;
         }
 
 }
@@ -25,10 +34,20 @@ __global__ void transformToUnit(double *mat, double *id_mat, int n, int i) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
 
+    __shared__ double pivot;
+
+    if (col < n && row < n) {
+        if (col == i && row == i) {
+            pivot = mat[i * n + i];
+        }
+    }
+
+    __syncthreads();
+
     if (row < n && col < n) {
         if (col == i && row == i) {
-            id_mat[col * n + row] /= mat[i * n + i];
-            mat[col * n + row] /= mat[i * n + i];
+            id_mat[col * n + row] /= pivot;
+            mat[col * n + row] /= pivot;
         }
     }
 }
@@ -36,6 +55,7 @@ __global__ void transformToUnit(double *mat, double *id_mat, int n, int i) {
 __global__ void transformToDiagonal(double *mat, double *id_mat, int n, int i) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
+
 
     if (row < n && col < n) {
         if (col != i) {
