@@ -83,7 +83,7 @@ int main()
         blocksize = 8;
     } else if (n < 512) {
         blocksize = 16;
-    } else if (n < 2048) {
+    } else if (n <= 2048) {
         blocksize = 32;
     } else {
         blocksize = 64;
