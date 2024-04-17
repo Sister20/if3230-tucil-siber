@@ -175,7 +175,8 @@ Execution environment: Win11 - WSL2 Ubuntu 22.04 - AMD Ryzen 5 5600H Radeon Grap
 * Linux operating system or WSL
 * G++ for C++ compilation
 * Make to run makefile
-* Open MPI library
+* Nvidia toolkit
+* CUDA API library
 
 ### Installation
 1. Clone the repo
