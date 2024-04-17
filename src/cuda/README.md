@@ -8,7 +8,7 @@
   <h3 align="center">Tucil 3 - CUDA</h3>
 
   <p align="center">
-    Matrix inverse solver using d...
+    Matrix inverse solver using general-purpose computing on GPUs
   </p>
 </div>
 
@@ -116,8 +116,51 @@ Execution environment: Win11 - WSL2 Ubuntu 22.04 - 13th Gen Intel i9-13900H 2.60
     </tbody>
 </table>
 
+Execution environment: Win11 - WSL2 Ubuntu 22.04 - AMD Ryzen 5 5600H Radeon Graphics - 16GB Memory - NVIDIA GeForce RTX 3050
+
+<table style="text-align: center;">
+    <thead>
+        <tr>
+            <th scope="col" rowspan="2">Matrix</th>
+            <th scope="col" colspan="2">Execution Time (s)</th>
+            <th scope="col" rowspan="2">Speed Up</th>
+        </tr>
+        <tr>
+            <th scope="col">Serial</th>
+            <th scope="col">CUDA</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>2048</td>
+            <td>86.15</td>
+            <td>9.086</td>
+            <td>9.482</td>
+        </tr>
+    </tbody>
+</table>
+
 ### Methods
 
+1. Determine block size based on the dimension of the matrix for optimal GPU performance
+
+2. Read the matrix from a text file and store it in the CPU
+
+3. Initialize the identity matrix in the CPU
+
+4. Allocate memory to store the initial matrix, the result, and the identity matrix in the GPU
+
+5. Perform Gauss-Jordan Elimination in the GPU using parallelization:
+
+    - normalizeTransform(): Normalize each row of the matrix by dividing every non-pivot element with the pivot
+    - transformToUnit(): Divide the pivot of each row to get every pivot of the each row equals to 1
+    - transformToDiagonal(): Eliminate non-pivot element to form a row-echelon matrix (identity matrix)
+
+6. The chosen approach iterates through each row and performs three calls: normalizeTransform, transformToUnit, and transformToDiagonal. These operations depend on the pivot values in the current row. Processing elements within a row leverages the shared memory effectively. Threads within a block can efficiently access and share the pivot element related to the current row stored in shared memory.
+
+7. Move the result matrix into the CPU from the GPU
+
+8. Free the memory allocated in the GPU and in the CPU
 
 ### Built With
 
