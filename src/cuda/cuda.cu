@@ -9,25 +9,25 @@
 
 using namespace std;
 
-__global__ void normalizeTransform(double *mat, double *id_mat, int n, int i){
+__global__ void normalizeTransform(double *mat, double *id_mat, int n, int i) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
 
     __shared__ double pivot;
-    if (col < n && row < n)
+    if (col < n && row < n) {
         if (col == i && col != row){
-            pivot = mat[i*n + i];
+            pivot = mat[i * n + i];
         }
-
+    }
 
     __syncthreads();
 
-    if (col < n && row < n)
+    if (col < n && row < n) {
         if (col == i && col != row){
-            id_mat[col*n + row] /= pivot;
-            mat[col*n + row] /= pivot;
+            id_mat[col * n + row] /= pivot;
+            mat[col * n + row] /= pivot;
         }
-
+    }
 }
 
 __global__ void transformToUnit(double *mat, double *id_mat, int n, int i) {
@@ -55,7 +55,6 @@ __global__ void transformToUnit(double *mat, double *id_mat, int n, int i) {
 __global__ void transformToDiagonal(double *mat, double *id_mat, int n, int i) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
-
 
     if (row < n && col < n) {
         if (col != i) {
@@ -127,7 +126,9 @@ int main()
 
 	// Perform the Gauss-Jordan elimination
     for (i = 0; i < n; ++i) {
+        // Normalize the matrix
         normalizeTransform <<<numBlocks, threadsPerBlock >>>(mat_c, id_mat_c, n, i);
+
         // Transform the matrix into a unit matrix
         transformToUnit<<<numBlocks, threadsPerBlock>>>(mat_c, id_mat_c, n, i);
 
